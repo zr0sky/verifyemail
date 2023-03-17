@@ -2,6 +2,7 @@
 在线验证邮箱真实性
 '''
 
+import optparse
 import random
 import smtplib
 import logging
@@ -35,7 +36,11 @@ def verify_istrue(email):
     '''
     email_list = []
     email_obj = {}
-    final_res = {}
+    final_res = {
+        "alive": [], # 存活
+        "dead": [],  # 销毁
+        "None": []   # 未知
+    }
     if isinstance(email, str) or isinstance(email, bytes):
         email_list.append(email)
     else:
@@ -61,19 +66,52 @@ def verify_istrue(email):
             send_from = s.docmd('RCPT TO:<%s>' % need_verify)
             logger.debug(send_from)
             if send_from[0] == 250 or send_from[0] == 451:
-                final_res[need_verify] = True  # 存在
+                final_res["alive"].append(need_verify)  # 存在
             elif send_from[0] == 550:
-                final_res[need_verify] = False  # 不存在
+                final_res["dead"].append(need_verify)  # 不存在
             else:
-                final_res[need_verify] = None  # 未知
+                final_res["None"].append(need_verify)  # 未知
 
         s.close()
 
     return final_res
 
+def parse_options():
+    opt = optparse.OptionParser()
+    opt.add_option("-e", "--email", help="验证邮件地址")
+    opt.add_option("-l", "--list", help="验证邮件地址列表")
+
+    (options,args) = opt.parse_args()
+    # print(options,args)
+    if not (options.list or options.email):
+        opt.print_help()
+        exit(0)
+    
+    return options
+
 
 if __name__ == '__main__':
-    final_list = verify_istrue(['190758586@qq.com',
-                                'qwer111111111111995@163.com'
-                                ])
-    print(final_list)
+    opt = parse_options()
+    check_list = []
+    if opt.email:
+        check_list.append(opt.email)
+    elif opt.list:
+        with open(opt.list, "r") as f:
+            for line in f.readlines():
+                line = line.strip()
+                if line != "":
+                    check_list.append(line)
+
+    final_list = verify_istrue(check_list)
+
+    print("存活：")
+    for k in final_list.get("alive"):
+        print(k)
+    
+    print("不存活：")
+    for k in final_list.get("dead"):
+        print(k)
+
+    print("未知：")
+    for k in final_list.get("None"):
+        print(k)
